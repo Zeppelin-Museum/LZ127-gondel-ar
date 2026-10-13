@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meine AR-Installation</title>
+
+<!--
+This product includes the XR Engine software developed by Niantic Spatial, Inc.
+Copyright © 2026 Niantic Spatial, Inc. All rights reserved.
+License: https://github.com/8thwall/engine/blob/main/LICENSE
+-->
+
+<!-- 8th Wall Engine mit World Tracking -->
+<script
+src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js"
+async
+crossorigin="anonymous"
+data-preload-chunks="slam">
+</script>
+
+<style>
+body {
+margin: 0;
+font-family: sans-serif;
+background: #171717;
+color: white;
+display: grid;
+place-items: center;
+min-height: 100vh;
+text-align: center;
+}
+
+main {
+padding: 24px;
+max-width: 520px;
+}
+
+p {
+line-height: 1.5;
+}
+</style>
+</head>
+
+<body>
+<main>
+<h1>Meine AR-Installation</h1>
+<p>Die Testseite ist online.</p>
+<p>Als Nächstes richten wir die Kamera und das World Tracking ein.</p>
+</main>
+</body>
+</html>
