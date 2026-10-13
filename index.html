@@ -41,10 +41,13 @@ background: #222;
 #panel {
 position: fixed;
 z-index: 2;
-inset: auto 0 0 0;
+left: 0;
+right: 0;
+bottom: 0;
 padding: 24px 18px calc(24px + env(safe-area-inset-bottom));
 text-align: center;
 background: rgba(0, 0, 0, 0.72);
+box-sizing: border-box;
 }
 
 h1 {
@@ -72,8 +75,8 @@ font-weight: bold;
 
 <main id="panel">
 <h1>AR-Kameratest</h1>
-<p id="status">Tippe auf „Kamera starten“, um den Test zu beginnen.</p>
-<button id="start">Kamera starten</button>
+<p id="status">Lade AR-Engine …</p>
+<button id="start" disabled>Kamera starten</button>
 </main>
 
 <script>
@@ -82,40 +85,82 @@ const statusText = document.getElementById('status');
 const panel = document.getElementById('panel');
 const canvas = document.getElementById('camera');
 
-startButton.addEventListener('click', async () => {
+let engineReady = false;
+let started = false;
+
+function engineLoaded() {
+if (!window.XR8) {
+statusText.textContent =
+'Die AR-Engine wurde nicht geladen. Prüfe die Internetverbindung und lade die Seite neu.';
+return;
+}
+
+engineReady = true;
+startButton.disabled = false;
+statusText.textContent =
+'Engine bereit. Tippe auf „Kamera starten“.';
+}
+
+window.addEventListener('xrloaded', engineLoaded);
+
+// In case the engine finished loading before this listener was registered.
+if (window.XR8) {
+engineLoaded();
+}
+
+startButton.addEventListener('click', () => {
+if (!engineReady || started) return;
+
+started = true;
 startButton.disabled = true;
-statusText.textContent = 'Engine wird geladen …';
+statusText.textContent =
+'Kamera wird gestartet. Bitte Kamerazugriff erlauben …';
 
 try {
-// Wait briefly for the async engine script to finish loading.
-let attempts = 0;
-while (!window.XR8 && attempts < 100) {
-await new Promise(resolve => setTimeout(resolve, 100));
-attempts++;
+XR8.addCameraPipelineModules([
+// Draws the camera image on the canvas.
+XR8.GlTextureRenderer.pipelineModule(),
+
+// Enables the tracking system needed for later AR placement.
+XR8.XrController.pipelineModule(),
+
+// Shows camera startup and failure status.
+{
+name: 'ar-camera-test-status',
+onCameraStatusChange: ({ status }) => {
+if (status === 'requesting') {
+statusText.textContent =
+'Warte auf Kamerafreigabe …';
+} else if (status === 'hasStream') {
+statusText.textContent =
+'Kamerastream erhalten …';
+} else if (status === 'hasVideo') {
+panel.innerHTML =
+'<h1>Kamera funktioniert!</h1>' +
+'<p>Der Kameratest ist erfolgreich. Als Nächstes ergänzen wir das AR-Modell.</p>';
+} else if (status === 'failed') {
+statusText.textContent =
+'Kamerastart fehlgeschlagen. Prüfe die Safari-Kameraberechtigung und lade die Seite neu.';
+startButton.disabled = false;
+started = false;
 }
-
-if (!window.XR8) {
-throw new Error('Die AR-Engine konnte nicht geladen werden. Bitte Internetverbindung prüfen und Seite neu laden.');
 }
+}
+]);
 
-statusText.textContent = 'Kamera wird gestartet …';
-
-window.XR8.run({
+XR8.run({
 canvas: canvas,
 cameraConfig: {
-direction: window.XR8.XrConfig.camera().BACK
-}
+direction: XR8.XrConfig.camera().BACK
+},
+allowedDevices: XR8.XrConfig.device().MOBILE
 });
-
-panel.innerHTML =
-'<h1>Kamera-Anfrage läuft</h1>' +
-'<p>Falls Safari fragt, erlaube den Kamerazugriff. Das Kamerabild sollte dann erscheinen.</p>';
 } catch (error) {
 statusText.textContent =
-error && error.message
-? error.message
-: 'Start fehlgeschlagen. Bitte Seite neu laden und erneut versuchen.';
+'Fehler beim Start: ' +
+(error && error.message ? error.message : 'Unbekannter Fehler');
 startButton.disabled = false;
+started = false;
 }
 });
 </script>
