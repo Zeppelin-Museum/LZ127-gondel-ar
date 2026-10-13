@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AR-Kameratest</title>
+<title>8th Wall Safari-Diagnose</title>
 
 <!--
 This product includes the XR Engine software developed by Niantic Spatial, Inc.
@@ -21,12 +21,10 @@ data-preload-chunks="slam">
 <style>
 html, body {
 margin: 0;
-width: 100%;
-height: 100%;
-overflow: hidden;
-font-family: sans-serif;
+min-height: 100%;
 background: #171717;
 color: white;
+font-family: -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 #camera {
@@ -34,39 +32,29 @@ position: fixed;
 inset: 0;
 width: 100%;
 height: 100%;
-display: block;
 background: #222;
 }
 
 #panel {
-position: fixed;
+position: relative;
 z-index: 2;
-left: 0;
-right: 0;
-bottom: 0;
-padding: 24px 18px calc(24px + env(safe-area-inset-bottom));
-text-align: center;
-background: rgba(0, 0, 0, 0.72);
-box-sizing: border-box;
+margin: 16px;
+padding: 18px;
+border-radius: 12px;
+background: rgba(0, 0, 0, 0.88);
+overflow-wrap: anywhere;
 }
 
-h1 {
-font-size: 1.35rem;
-margin: 0 0 10px;
-}
-
-p {
-line-height: 1.45;
-margin: 0 0 16px;
-}
-
+h1 { font-size: 1.25rem; margin-top: 0; }
+p { line-height: 1.4; }
 button {
-font-size: 1rem;
-padding: 14px 22px;
+padding: 13px 18px;
 border: 0;
-border-radius: 10px;
-font-weight: bold;
+border-radius: 9px;
+font-size: 1rem;
+font-weight: 600;
 }
+#details { white-space: pre-wrap; font-size: 0.9rem; line-height: 1.45; }
 </style>
 </head>
 
@@ -74,76 +62,113 @@ font-weight: bold;
 <canvas id="camera"></canvas>
 
 <main id="panel">
-<h1>AR-Kameratest</h1>
-<p id="status">Lade AR-Engine …</p>
+<h1>Safari-Kameradiagnose</h1>
+<p id="status">Prüfe Browser und lade die Engine …</p>
 <button id="start" disabled>Kamera starten</button>
+<p id="details">Die Diagnose wird hier angezeigt.</p>
 </main>
 
 <script>
-const startButton = document.getElementById('start');
 const statusText = document.getElementById('status');
-const panel = document.getElementById('panel');
+const details = document.getElementById('details');
+const startButton = document.getElementById('start');
 const canvas = document.getElementById('camera');
 
 let engineReady = false;
 let started = false;
 
-function engineLoaded() {
-if (!window.XR8) {
-statusText.textContent =
-'Die AR-Engine wurde nicht geladen. Prüfe die Internetverbindung und lade die Seite neu.';
-return;
+function writeDetails(extra) {
+const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+const lines = [
+'Browser: ' + navigator.userAgent,
+'HTTPS / sicherer Kontext: ' + window.isSecureContext,
+'Kamera-API verfügbar: ' + Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+'WebGL verfügbar: ' + Boolean(gl),
+'XR8-Engine verfügbar: ' + Boolean(window.XR8)
+];
+if (extra) lines.push('', 'Meldung: ' + extra);
+details.textContent = lines.join('\n');
 }
 
+function engineLoaded() {
+if (!window.XR8) {
+statusText.textContent = 'Die Engine wurde nicht geladen.';
+writeDetails('Kein window.XR8 nach dem Ladeereignis.');
+return;
+}
 engineReady = true;
 startButton.disabled = false;
-statusText.textContent =
-'Engine bereit. Tippe auf „Kamera starten“.';
+statusText.textContent = 'Engine geladen. Tippe auf „Kamera starten“.';
+writeDetails();
 }
 
 window.addEventListener('xrloaded', engineLoaded);
 
-// In case the engine finished loading before this listener was registered.
+window.addEventListener('error', (event) => {
+writeDetails(event.message || 'JavaScript-Fehler');
+statusText.textContent = 'Ein JavaScript- oder Ladefehler ist aufgetreten.';
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+const message = event.reason && event.reason.message
+? event.reason.message
+: String(event.reason || 'Unbekannter Fehler');
+writeDetails(message);
+statusText.textContent = 'Ein Startvorgang ist fehlgeschlagen.';
+});
+
+// Show browser capability checks immediately.
+writeDetails();
+
+// Give the asynchronous engine script time to load.
+let waitCount = 0;
+const waitForEngine = setInterval(() => {
+waitCount++;
 if (window.XR8) {
+clearInterval(waitForEngine);
 engineLoaded();
+} else if (waitCount >= 150) {
+clearInterval(waitForEngine);
+statusText.textContent = 'Die Engine lädt nicht. Prüfe Verbindung oder Browser.';
+writeDetails('Nach 15 Sekunden ist window.XR8 noch nicht verfügbar.');
 }
+}, 100);
 
 startButton.addEventListener('click', () => {
 if (!engineReady || started) return;
-
 started = true;
 startButton.disabled = true;
-statusText.textContent =
-'Kamera wird gestartet. Bitte Kamerazugriff erlauben …';
+statusText.textContent = 'Kamera wird angefordert …';
 
 try {
 XR8.addCameraPipelineModules([
-// Draws the camera image on the canvas.
 XR8.GlTextureRenderer.pipelineModule(),
-
-// Enables the tracking system needed for later AR placement.
 XR8.XrController.pipelineModule(),
-
-// Shows camera startup and failure status.
 {
-name: 'ar-camera-test-status',
+name: 'safari-diagnostic',
 onCameraStatusChange: ({ status }) => {
-if (status === 'requesting') {
-statusText.textContent =
-'Warte auf Kamerafreigabe …';
-} else if (status === 'hasStream') {
-statusText.textContent =
-'Kamerastream erhalten …';
-} else if (status === 'hasVideo') {
-panel.innerHTML =
-'<h1>Kamera funktioniert!</h1>' +
-'<p>Der Kameratest ist erfolgreich. Als Nächstes ergänzen wir das AR-Modell.</p>';
-} else if (status === 'failed') {
-statusText.textContent =
-'Kamerastart fehlgeschlagen. Prüfe die Safari-Kameraberechtigung und lade die Seite neu.';
+statusText.textContent = 'Kamerastatus: ' + status;
+writeDetails('Kamerastatus: ' + status);
+
+if (status === 'hasVideo') {
+statusText.textContent = 'Kamera läuft.';
+}
+
+if (status === 'failed') {
 startButton.disabled = false;
 started = false;
+statusText.textContent =
+'Kamera fehlgeschlagen. Lies die Diagnose unten.';
 }
+},
+onException: (error) => {
+const message = error && error.message
+? error.message
+: JSON.stringify(error);
+statusText.textContent = '8th-Wall-Fehler.';
+writeDetails(message || 'Unbekannte Engine-Ausnahme');
+startButton.disabled = false;
+started = false;
 }
 }
 ]);
@@ -156,9 +181,11 @@ direction: XR8.XrConfig.camera().BACK
 allowedDevices: XR8.XrConfig.device().MOBILE
 });
 } catch (error) {
-statusText.textContent =
-'Fehler beim Start: ' +
-(error && error.message ? error.message : 'Unbekannter Fehler');
+const message = error && error.message
+? error.message
+: String(error);
+statusText.textContent = 'Start fehlgeschlagen.';
+writeDetails(message);
 startButton.disabled = false;
 started = false;
 }
