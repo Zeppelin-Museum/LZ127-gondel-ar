@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AR-Welttest</title>
+<title>AR-Welttest – verbessert</title>
 
 <!--
 This product includes the XR Engine software developed by Niantic Spatial, Inc.
@@ -11,10 +11,8 @@ Copyright © 2026 Niantic Spatial, Inc. All rights reserved.
 License: https://github.com/8thwall/engine/blob/main/LICENSE
 -->
 
-<!-- Three.js für das 3D-Testobjekt -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 
-<!-- 8th Wall Engine inklusive World-Tracking-Modul -->
 <script
 src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js"
 async
@@ -34,13 +32,25 @@ font-family: -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 #camera {
+position: fixed !important;
+inset: 0 !important;
+width: 100vw !important;
+height: 100dvh !important;
+display: block;
+margin: 0;
+padding: 0;
+border: 0;
+background: #222;
+z-index: 0;
+}
+
+body {
 position: fixed;
 inset: 0;
-width: 100%;
-height: 100%;
-display: block;
-background: #222;
+width: 100vw;
+height: 100dvh;
 }
+
 
 #panel {
 position: fixed;
@@ -48,16 +58,17 @@ z-index: 2;
 left: 0;
 right: 0;
 bottom: 0;
-padding: 20px 16px calc(22px + env(safe-area-inset-bottom));
+padding: 18px 16px calc(20px + env(safe-area-inset-bottom));
 text-align: center;
-background: rgba(0, 0, 0, 0.76);
+background: rgba(0, 0, 0, 0.78);
 box-sizing: border-box;
 }
 
-h1 { font-size: 1.25rem; margin: 0 0 8px; }
-p { line-height: 1.4; margin: 0 0 14px; }
+h1 { font-size: 1.2rem; margin: 0 0 8px; }
+p { line-height: 1.4; margin: 0 0 12px; }
+#tracking { font-size: 0.9rem; opacity: 0.95; }
 button {
-padding: 14px 20px;
+padding: 13px 18px;
 border: 0;
 border-radius: 10px;
 font-size: 1rem;
@@ -72,11 +83,13 @@ font-weight: 700;
 <main id="panel">
 <h1>AR-Welttest</h1>
 <p id="status">Lade 3D- und AR-Engine …</p>
+<p id="tracking">World Tracking: noch nicht gestartet</p>
 <button id="start" disabled>AR-Test starten</button>
 </main>
 
 <script>
 const statusText = document.getElementById('status');
+const trackingText = document.getElementById('tracking');
 const startButton = document.getElementById('start');
 const panel = document.getElementById('panel');
 const canvas = document.getElementById('camera');
@@ -85,21 +98,18 @@ let started = false;
 
 function readyCheck() {
 if (!window.THREE) {
-statusText.textContent = 'Three.js konnte nicht geladen werden. Bitte Internetverbindung prüfen.';
+statusText.textContent = 'Three.js konnte nicht geladen werden. Prüfe die Internetverbindung.';
 return;
 }
-
 if (!window.XR8) {
 statusText.textContent = 'AR-Engine lädt noch …';
 return;
 }
-
-statusText.textContent = 'Bereit. Tippe auf „AR-Test starten“.';
+statusText.textContent = 'Bereit. Richte das iPhone auf eine gut beleuchtete Umgebung.';
 startButton.disabled = false;
 }
 
 window.addEventListener('xrloaded', readyCheck);
-
 const waitForEngine = setInterval(() => {
 if (window.XR8 && window.THREE) {
 clearInterval(waitForEngine);
@@ -107,86 +117,93 @@ readyCheck();
 }
 }, 100);
 
-function makeScene({scene, camera}) {
-// Helle, gut sichtbare Testfigur direkt vor dem Startpunkt.
+function makeScene(scene) {
 const group = new THREE.Group();
 
 const box = new THREE.Mesh(
 new THREE.BoxGeometry(0.22, 0.22, 0.22),
 new THREE.MeshStandardMaterial({
 color: 0xffcc33,
-roughness: 0.45,
-metalness: 0.05
+roughness: 0.5,
+metalness: 0.02
 })
 );
 group.add(box);
 
+// The torus is rotated flat so it forms a horizontal ring below the cube.
 const ring = new THREE.Mesh(
-new THREE.TorusGeometry(0.19, 0.025, 12, 48),
+new THREE.TorusGeometry(0.19, 0.018, 12, 48),
 new THREE.MeshStandardMaterial({
 color: 0x33ddff,
-roughness: 0.35,
-metalness: 0.1
+roughness: 0.4,
+metalness: 0.05
 })
 );
-ring.position.y = -0.23;
+ring.rotation.x = Math.PI / 2;
+ring.position.y = -0.17;
 group.add(ring);
 
 const stem = new THREE.Mesh(
-new THREE.CylinderGeometry(0.012, 0.012, 0.2, 12),
+new THREE.CylinderGeometry(0.012, 0.012, 0.07, 12),
 new THREE.MeshStandardMaterial({color: 0xffffff})
 );
-stem.position.y = -0.12;
+stem.position.y = -0.14;
 group.add(stem);
 
-// Three.js camera faces down the negative Z axis by default.
-// The object is placed 1.5 metres in front of the initial viewpoint.
+// Place the object 1.5 m in front of the initial camera pose.
 group.position.set(0, 0, -1.5);
 scene.add(group);
 
-const ambient = new THREE.HemisphereLight(0xffffff, 0x667788, 1.8);
-scene.add(ambient);
-
-const light = new THREE.DirectionalLight(0xffffff, 1.5);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x667788, 1.8));
+const light = new THREE.DirectionalLight(0xffffff, 1.4);
 light.position.set(1, 2, 1);
 scene.add(light);
-
-// Keep the world origin aligned to the initial camera pose.
-XR8.XrController.updateCameraProjectionMatrix({
-origin: camera.position,
-facing: camera.quaternion
-});
 }
 
 startButton.addEventListener('click', () => {
 if (started || !window.XR8 || !window.THREE) return;
-
 started = true;
 startButton.disabled = true;
 statusText.textContent = 'Starte Kamera und World Tracking …';
+trackingText.textContent = 'Tracking initialisiert …';
 
 try {
+// Explicitly keep SLAM / world tracking enabled.
+XR8.XrController.configure({
+disableWorldTracking: false,
+scale: 'responsive'
+});
+
 XR8.addCameraPipelineModules([
 XR8.GlTextureRenderer.pipelineModule(),
 XR8.Threejs.pipelineModule(),
 XR8.XrController.pipelineModule(),
 {
 name: 'ar-world-test-scene',
-onStart: ({canvasWidth, canvasHeight}) => {
+listeners: [
+{
+event: 'reality.trackingstatus',
+process: ({detail}) => {
+const status = detail && detail.status ? detail.status : 'unbekannt';
+const reason = detail && detail.reason ? detail.reason : '';
+trackingText.textContent =
+'World Tracking: ' + status +
+(reason ? ' (' + reason + ')' : '');
+}
+}
+],
+onStart: () => {
 const {scene, camera} = XR8.Threejs.xrScene();
-makeScene({scene, camera});
 
-panel.innerHTML =
-'<h1>AR-Test läuft</h1>' +
-'<p>Du solltest einen gelben Würfel mit einem blauen Ring sehen. Bewege dich langsam seitlich und gehe ein Stück darum herum.</p>';
-},
-onException: (error) => {
-const message = error && error.message
-? error.message
-: 'Unbekannter Fehler';
-panel.innerHTML =
-'<h1>AR-Fehler</h1><p>' + message + '</p>' +
-'<p>Bitte lade die Seite neu und versuche es erneut.</p>';
+// Set the initial tracking origin to the current camera pose.
+XR8.XrController.updateCameraProjectionMatrix({
+origin: camera.position,
+facing: camera.quaternion
+});
+
+makeScene(scene);
+statusText.textContent = 'Gelber Würfel mit waagerechtem blauem Ring.';
+startButton.style.display = 'none';
 }
 }
 ]);
