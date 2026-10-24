@@ -2,227 +2,102 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AR-Welttest – verbessert</title>
-
-<!--
-This product includes the XR Engine software developed by Niantic Spatial, Inc.
-Copyright © 2026 Niantic Spatial, Inc. All rights reserved.
-License: https://github.com/8thwall/engine/blob/main/LICENSE
--->
-
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-
-<script
-src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js"
-async
-crossorigin="anonymous"
-data-preload-chunks="slam">
-</script>
-
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101820">
+<title>LZ-127 Motorgondel in AR</title>
 <style>
-html, body {
-margin: 0;
-width: 100%;
-height: 100%;
-overflow: hidden;
-background: #171717;
-color: white;
-font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-}
-
-#camera {
-position: fixed !important;
-inset: 0 !important;
-width: 100vw !important;
-height: 100dvh !important;
-display: block;
-margin: 0;
-padding: 0;
-border: 0;
-background: #222;
-z-index: 0;
-}
-
+* { box-sizing: border-box; }
 body {
-position: fixed;
-inset: 0;
-width: 100vw;
-height: 100dvh;
+margin: 0; min-height: 100vh; padding: 24px;
+display: flex; align-items: center; justify-content: center;
+font-family: Arial, sans-serif; background: #101820; color: #fff;
 }
-
-
-#panel {
-position: fixed;
-z-index: 2;
-left: 0;
-right: 0;
-bottom: 0;
-padding: 18px 16px calc(20px + env(safe-area-inset-bottom));
-text-align: center;
-background: rgba(0, 0, 0, 0.78);
-box-sizing: border-box;
+main { width: 100%; max-width: 520px; text-align: center; }
+h1 { margin-bottom: 12px; font-size: clamp(28px, 7vw, 42px); }
+p { line-height: 1.6; color: #d4dbe2; }
+.ar-button {
+display: block; width: 100%; margin: 24px 0 12px; padding: 16px 20px;
+border: 0; border-radius: 12px; background: #f0c66e; color: #101820;
+font-size: 17px; font-weight: bold; text-decoration: none; cursor: pointer;
 }
-
-h1 { font-size: 1.2rem; margin: 0 0 8px; }
-p { line-height: 1.4; margin: 0 0 12px; }
-#tracking { font-size: 0.9rem; opacity: 0.95; }
-button {
-padding: 13px 18px;
-border: 0;
-border-radius: 10px;
-font-size: 1rem;
-font-weight: 700;
-}
+.note { margin-top: 20px; font-size: 14px; color: #aebbc7; }
+[hidden] { display: none !important; }
 </style>
 </head>
-
 <body>
-<canvas id="camera"></canvas>
+<main>
+<h1>LZ-127 Motorgondel in AR</h1>
+<p>
+Für iPhone:
+1. Tippe auf START und im folgenden Aufruf auf "3D-Objekt anzeigen".
+2. Wenn das Objekt als Bild erscheint, tippe auf den gestrichelten Würfel oben rechts.
+3. Bewege das Handy über dem Boden an der Stelle, wo das Objekt platziert werden soll.
+4. Modell-Maßstab 1:1, richte das Handy auf das Objekt und entferne dich davon, bis es im Display gut zu sehen ist.
+</p>
 
-<main id="panel">
-<h1>AR-Welttest</h1>
-<p id="status">Lade 3D- und AR-Engine …</p>
-<p id="tracking">World Tracking: noch nicht gestartet</p>
-<button id="start" disabled>AR-Test starten</button>
+<!-- iPhone / iPad: bestehende Apple-AR-Quick-Look-Version -->
+<section id="ios-option" hidden>
+<a class="ar-button" rel="ar" href="./models/model.usdz">
+START
+</a>
+<p class="note">
+Objekt skalieren: Mit zwei Fingern auf dem Display (die Größe in % wird angezeigt).
+Objekt bewegen: Auf Objekt tippen, halten und verschieben.
+</p>
+</section>
+
+<!-- Android: bestehende WebXR-Version -->
+<section id="android-option" hidden>
+<a class="ar-button" href="./android.html">
+START
+</a>
+<p class="note">
+Zeppelin Museum
+</p>
+</section>
+
+<!-- Andere Geräte: beide Möglichkeiten anbieten -->
+<section id="other-option" hidden>
+<p>Wähle die passende AR-Version für dein Gerät:</p>
+<a class="ar-button" rel="ar" href="./models/model.usdz">
+iPhone / iPad – AR starten
+</a>
+<a class="ar-button" href="./android.html">
+Android – AR starten
+</a>
+</section>
+
+<noscript>
+<p>Bitte aktiviere JavaScript oder verwende einen der direkten Links:</p>
+<a class="ar-button" rel="ar" href="./models/model.usdz">
+iPhone / iPad – AR starten
+</a>
+<a class="ar-button" href="./android.html">Android – AR starten</a>
+</noscript>
 </main>
 
 <script>
-const statusText = document.getElementById('status');
-const trackingText = document.getElementById('tracking');
-const startButton = document.getElementById('start');
-const panel = document.getElementById('panel');
-const canvas = document.getElementById('camera');
+(() => {
+const ua = navigator.userAgent || "";
 
-let started = false;
+// iPadOS kann sich als Mac ausgeben.
+const isIPadOS =
+navigator.platform === "MacIntel" &&
+navigator.maxTouchPoints > 1;
 
-function readyCheck() {
-if (!window.THREE) {
-statusText.textContent = 'Three.js konnte nicht geladen werden. Prüfe die Internetverbindung.';
-return;
+const isIOS =
+/iPhone|iPad|iPod/i.test(ua) || isIPadOS;
+
+const isAndroid = /Android/i.test(ua);
+
+if (isIOS) {
+document.getElementById("ios-option").hidden = false;
+} else if (isAndroid) {
+document.getElementById("android-option").hidden = false;
+} else {
+document.getElementById("other-option").hidden = false;
 }
-if (!window.XR8) {
-statusText.textContent = 'AR-Engine lädt noch …';
-return;
-}
-statusText.textContent = 'Bereit. Richte das iPhone auf eine gut beleuchtete Umgebung.';
-startButton.disabled = false;
-}
-
-window.addEventListener('xrloaded', readyCheck);
-const waitForEngine = setInterval(() => {
-if (window.XR8 && window.THREE) {
-clearInterval(waitForEngine);
-readyCheck();
-}
-}, 100);
-
-function makeScene(scene) {
-const group = new THREE.Group();
-
-const box = new THREE.Mesh(
-new THREE.BoxGeometry(0.22, 0.22, 0.22),
-new THREE.MeshStandardMaterial({
-color: 0xffcc33,
-roughness: 0.5,
-metalness: 0.02
-})
-);
-group.add(box);
-
-// The torus is rotated flat so it forms a horizontal ring below the cube.
-const ring = new THREE.Mesh(
-new THREE.TorusGeometry(0.19, 0.018, 12, 48),
-new THREE.MeshStandardMaterial({
-color: 0x33ddff,
-roughness: 0.4,
-metalness: 0.05
-})
-);
-ring.rotation.x = Math.PI / 2;
-ring.position.y = -0.17;
-group.add(ring);
-
-const stem = new THREE.Mesh(
-new THREE.CylinderGeometry(0.012, 0.012, 0.07, 12),
-new THREE.MeshStandardMaterial({color: 0xffffff})
-);
-stem.position.y = -0.14;
-group.add(stem);
-
-// Place the object 1.5 m in front of the initial camera pose.
-group.position.set(0, 0, -1.5);
-scene.add(group);
-
-scene.add(new THREE.HemisphereLight(0xffffff, 0x667788, 1.8));
-const light = new THREE.DirectionalLight(0xffffff, 1.4);
-light.position.set(1, 2, 1);
-scene.add(light);
-}
-
-startButton.addEventListener('click', () => {
-if (started || !window.XR8 || !window.THREE) return;
-started = true;
-startButton.disabled = true;
-statusText.textContent = 'Starte Kamera und World Tracking …';
-trackingText.textContent = 'Tracking initialisiert …';
-
-try {
-// Explicitly keep SLAM / world tracking enabled.
-XR8.XrController.configure({
-disableWorldTracking: false,
-scale: 'responsive'
-});
-
-XR8.addCameraPipelineModules([
-XR8.GlTextureRenderer.pipelineModule(),
-XR8.Threejs.pipelineModule(),
-XR8.XrController.pipelineModule(),
-{
-name: 'ar-world-test-scene',
-listeners: [
-{
-event: 'reality.trackingstatus',
-process: ({detail}) => {
-const status = detail && detail.status ? detail.status : 'unbekannt';
-const reason = detail && detail.reason ? detail.reason : '';
-trackingText.textContent =
-'World Tracking: ' + status +
-(reason ? ' (' + reason + ')' : '');
-}
-}
-],
-onStart: () => {
-const {scene, camera} = XR8.Threejs.xrScene();
-
-// Set the initial tracking origin to the current camera pose.
-XR8.XrController.updateCameraProjectionMatrix({
-origin: camera.position,
-facing: camera.quaternion
-});
-
-makeScene(scene);
-statusText.textContent = 'Gelber Würfel mit waagerechtem blauem Ring.';
-startButton.style.display = 'none';
-}
-}
-]);
-
-XR8.run({
-canvas: canvas,
-cameraConfig: {
-direction: XR8.XrConfig.camera().BACK
-},
-allowedDevices: XR8.XrConfig.device().MOBILE
-});
-} catch (error) {
-statusText.textContent =
-'Start fehlgeschlagen: ' +
-(error && error.message ? error.message : String(error));
-startButton.disabled = false;
-started = false;
-}
-});
+})();
 </script>
 </body>
 </html>
